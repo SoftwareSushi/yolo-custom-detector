@@ -1,0 +1,12 @@
+# Tested on an Apple M4 (macOS 26.3.1, Python 3.11) on 2026-10-25.
+# coremltools 9.0 fails to convert with numpy >= 2.3 or torch newer than 2.7.0, so they are pinned.
+ultralytics==8.4.188
+torch==2.7.0
+torchvision==0.22.0
+numpy<2.3
+coremltools==9.0
+onnx
+onnxruntime
+onnxslim
+opencv-python
+imageio-ffmpeg

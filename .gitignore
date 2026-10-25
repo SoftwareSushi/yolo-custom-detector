@@ -1,0 +1,7 @@
+.venv/
+raw/
+datasets/
+runs/*/weights/*.pt
+*.mlpackage/
+*.onnx
+__pycache__/

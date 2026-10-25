@@ -1,0 +1,27 @@
+{
+  "machine": "arm64",
+  "processor": "arm",
+  "images": 200,
+  "results": [
+    {
+      "format": "PyTorch (MPS)",
+      "fps": 43.6,
+      "ms_per_image": 23.0
+    },
+    {
+      "format": "PyTorch (CPU)",
+      "fps": 37.8,
+      "ms_per_image": 26.4
+    },
+    {
+      "format": "CoreML",
+      "fps": 142.1,
+      "ms_per_image": 7.0
+    },
+    {
+      "format": "ONNX Runtime (CPU)",
+      "fps": 54.2,
+      "ms_per_image": 18.4
+    }
+  ]
+}
