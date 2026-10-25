@@ -1,7 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
 .venv/
+
+# Data and training outputs (recreated by the scripts)
 raw/
 datasets/
-runs/*/weights/*.pt
+runs/
+*.pt
 *.mlpackage/
 *.onnx
-__pycache__/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

@@ -1,73 +1,104 @@
-# yolo-custom-detector
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-software-sushi-white.svg">
+    <img alt="Software Sushi" src="docs/assets/logo-software-sushi.svg" width="340">
+  </picture>
+</p>
 
-Fine-tune a pretrained YOLO model to find hard hats, export it to CoreML and ONNX, and run it frame by frame on video. Everything here ran on one Apple M4 laptop, with training on its GPU through PyTorch MPS.
+<h1 align="center">Custom YOLO Detector on Apple Silicon</h1>
 
-This is the companion repository for the Software Sushi article [Train a Custom YOLO Object Detector: Dataset to Inference](https://softwaresushi.com/blog-details/object-detection-using-yolo).
+<p align="center"><strong>Fine-tune a pretrained YOLO model on your own classes on a Mac, export it to CoreML and ONNX, and run it frame by frame on video. Every number below comes from one recorded run.</strong></p>
 
-## What you get
+<p align="center">
+  <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-7a2e59"></a>
+  <img alt="Python" src="https://img.shields.io/badge/python-3.11-d9480f">
+  <img alt="Ultralytics" src="https://img.shields.io/badge/ultralytics-8.4.188-9a2f06">
+  <img alt="Apple Silicon" src="https://img.shields.io/badge/Apple%20Silicon-MPS%20%7C%20CoreML-2a1420">
+  <a href="https://softwaresushi.com/blog-details/object-detection-using-yolo"><img alt="Article" src="https://img.shields.io/badge/article-softwaresushi.com-e8a33d"></a>
+</p>
 
-| Step | Script | Output |
-|---|---|---|
-| 1. Get and convert the dataset | `scripts/prepare_dataset.py` | `datasets/hardhat/` in YOLO format and `data.yaml` |
-| 2. Fine-tune | `scripts/train.py` | `runs/hardhat/weights/best.pt`, curves, confusion matrix |
-| 3. Export | `scripts/export.py` | `best.mlpackage` (CoreML) and `best.onnx` |
-| 4. Measure speed | `scripts/benchmark.py` | `results/benchmark.json` |
-| 5. Run live | `scripts/live.py` | boxes drawn on a webcam stream or a video file |
+## Overview
 
-## Quick start
+This repository is the companion code for the Software Sushi article [Train a Custom YOLO Object Detector on a Mac: Dataset to Live Video](https://softwaresushi.com/blog-details/object-detection-using-yolo). It trains a two-class detector, `hardhat` and `no-hardhat`, from YOLO11n pretrained weights. The model trains on the Apple GPU through PyTorch MPS, so no cloud GPU is needed.
 
-```bash
-python3.11 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-python scripts/prepare_dataset.py           # downloads about 1.1 GB once, keeps 2,000 / 400 / 200 images
-python scripts/train.py                     # 30 epochs, device=mps
-python scripts/export.py                    # CoreML + ONNX
-python scripts/benchmark.py                 # speed of each format on the test images
-python scripts/live.py                      # webcam 0; press q to quit
-python scripts/live.py --source my.mp4 --save out.mp4 --no-show
-```
+<p align="center"><img alt="Pipeline: dataset, label, train, export, infer" src="docs/assets/pipeline.svg" width="860"></p>
 
-To use the webcam, run `live.py` from a terminal app that has camera permission in **System Settings > Privacy & Security > Camera**. An SSH session has no camera access on macOS.
+## Results
 
-## Dataset
+The results come from one run on 2026-10-25 on a MacBook Air with an Apple M4 and 16 GB of memory. The run used YOLO11n, 30 epochs, image size 640, batch 16, seed 0 and `device=mps`. Training took **0.685 hours (41 minutes)**.
 
-[Hard Hat Detection](https://huggingface.co/datasets/keremberke/hard-hat-detection), a Roboflow Universe export ("Hard Hats", resized to 640 × 640) with two classes, `hardhat` and `no-hardhat`, licensed **CC BY 4.0**. `prepare_dataset.py` converts its COCO annotations to YOLO text labels (`class x_center y_center width height`, normalized) and keeps a fixed random subset (seed 0):
-
-| Split | Images | Boxes |
-|---|---|---|
-| train | 2,000 | 5,610 |
-| val | 400 | 1,140 |
-| test | 200 | 534 |
-
-The images are not redistributed here. Credit for the images and labels goes to the dataset authors.
-
-## Our results
-
-These are from one run on 2026-10-25 on a MacBook Air with an Apple M4 and 16 GB of memory: YOLO11n from pretrained weights, 30 epochs, image size 640, batch 16, `device=mps`. Training took 0.685 hours (41 minutes).
-
-Held-out test split (200 images, 534 boxes), `best.pt`:
+**Held-out test split** (200 images, 534 boxes, `best.pt`):
 
 | Class | Precision | Recall | mAP50 | mAP50-95 |
-|---|---|---|---|---|
-| all | 0.864 | 0.847 | 0.894 | 0.538 |
+| --- | --- | --- | --- | --- |
+| all | 0.864 | 0.847 | **0.894** | **0.538** |
 | hardhat | 0.879 | 0.814 | 0.853 | 0.452 |
 | no-hardhat | 0.849 | 0.880 | 0.934 | 0.625 |
 
 Validation split at epoch 30 (400 images, 1,140 boxes): precision 0.847, recall 0.834, mAP50 0.877, mAP50-95 0.510.
 
-Speed on the 200 test images after 10 warm-up runs (`results/benchmark.json`). It includes reading each JPEG and pre- and postprocessing:
+<p align="center"><img alt="Validation mAP per epoch" src="docs/assets/training-curves.svg" width="860"></p>
+
+**Inference speed** on the 200 test images, after 10 warm-up runs. The times include reading each JPEG and pre- and postprocessing. The raw output is in [`results/benchmark.json`](results/benchmark.json).
 
 | Format | Images per second | ms per image |
-|---|---|---|
+| --- | --- | --- |
+| CoreML | **142.1** | 7.0 |
+| ONNX Runtime (CPU) | 54.2 | 18.4 |
 | PyTorch (MPS) | 43.6 | 23.0 |
 | PyTorch (CPU) | 37.8 | 26.4 |
-| CoreML | 142.1 | 7.0 |
-| ONNX Runtime (CPU) | 54.2 | 18.4 |
 
-`results/` holds the training curves (`results.csv`, `results.png`), the confusion matrices and PR curves for the validation and test splits, and a short recording of `live.py` on held-out test images. That recording is a video built from still test images, not a webcam, because the run happened over SSH.
+These numbers come from one run on one small subset, so treat them as a reference point, not a benchmark. Your numbers will change with the dataset, the seed and the machine.
 
-One run on one small subset is not a benchmark. Your numbers will change with the dataset, the seed and the machine.
+## Quickstart
+
+```sh
+git clone https://github.com/SoftwareSushi/yolo-custom-detector.git
+cd yolo-custom-detector
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+python scripts/prepare_dataset.py   # downloads about 1.1 GB once, keeps 2,000 / 400 / 200 images
+python scripts/train.py             # 30 epochs on the Apple GPU (device=mps)
+python scripts/export.py            # writes best.mlpackage (CoreML) and best.onnx
+python scripts/benchmark.py         # speed of each format on the test images
+python scripts/live.py              # webcam 0, press q to quit
+python scripts/live.py --source clip.mp4 --save out.mp4 --no-show
+```
+
+To train on your own classes, label your images in any tool that exports YOLO format. Then point `scripts/train.py --data` at your own `data.yaml`.
+
+## Project structure
+
+```
+scripts/
+  prepare_dataset.py   download the dataset, convert COCO labels to YOLO and keep a fixed subset
+  train.py             fine-tune from pretrained weights, then score best.pt on the test split
+  export.py            export to CoreML (with NMS) and ONNX
+  benchmark.py         time PyTorch MPS/CPU, CoreML and ONNX Runtime on the same images
+  live.py              draw boxes on a webcam stream or a video file
+results/               training log (results.csv), plots, confusion matrices, PR curves, benchmark, demo clip
+docs/assets/           diagrams and brand assets used in this README
+```
+
+The scripts write the dataset, weights and exports to `datasets/` and `runs/`. Git ignores both folders.
+
+## Hardware notes
+
+- **Training:** we tested on an Apple M4 (macOS 26.3.1, Python 3.11). Any Apple Silicon Mac with PyTorch MPS should work. On Linux with an NVIDIA GPU, pass `--device 0`.
+- **CoreML export:** coremltools 9.0 fails with numpy 2.3 or newer, and with torch newer than 2.7.0. The error is `only 0-dimensional arrays can be converted to Python scalars`. For this reason, `requirements.txt` pins both packages.
+- **Webcam:** macOS gives the camera only to apps that you allow in *System Settings > Privacy & Security > Camera*. A session started over SSH cannot get camera access. The clip in `results/` therefore plays still test images as a video.
+
+## Dataset attribution
+
+This project uses [Hard Hat Detection](https://huggingface.co/datasets/keremberke/hard-hat-detection), a Roboflow Universe export ("Hard Hats", 640 × 640) by its original authors, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The repository does not redistribute the images. `prepare_dataset.py` downloads them from the source.
 
 ## License
 
-The code is AGPL-3.0, the same license as [Ultralytics](https://github.com/ultralytics/ultralytics), which it imports. The dataset is CC BY 4.0 from its authors.
+The code is licensed under [AGPL-3.0](LICENSE), the same license as [Ultralytics](https://github.com/ultralytics/ultralytics), which it imports. The dataset keeps its own CC BY 4.0 license.
+
+<p align="center">
+  <strong>Built by <a href="https://softwaresushi.com">Software Sushi</a></strong><br>
+  AI/ML engineering and consulting: computer vision, agents and LLM applications.<br>
+  <a href="https://softwaresushi.com/service-details/computer-vision-development">Computer vision development</a> · <a href="https://softwaresushi.com">softwaresushi.com</a>
+</p>
