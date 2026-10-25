@@ -52,6 +52,16 @@ These numbers come from one run on one small subset, so treat them as a referenc
 
 ## Quickstart
 
+**Prerequisites:** an Apple Silicon Mac (or Linux with an NVIDIA GPU), `git`, and **Python 3.11**. The pinned torch and coremltools versions were tested on 3.11. macOS does not ship it, so install it first with one of these:
+
+```sh
+brew install python@3.11                       # Homebrew, provides python3.11
+# or
+curl -LsSf https://astral.sh/uv/install.sh | sh && uv python install 3.11
+```
+
+If you use uv, create the environment with `uv venv -p 3.11 .venv` instead of the `python3.11 -m venv` line below.
+
 ```sh
 git clone https://github.com/SoftwareSushi/yolo-custom-detector.git
 cd yolo-custom-detector
@@ -59,12 +69,21 @@ python3.11 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 python scripts/prepare_dataset.py   # downloads about 1.1 GB once, keeps 2,000 / 400 / 200 images
-python scripts/train.py             # 30 epochs on the Apple GPU (device=mps)
+python scripts/train.py             # 30 epochs on the Apple GPU (device=mps), then scores the test split
 python scripts/export.py            # writes best.mlpackage (CoreML) and best.onnx
-python scripts/benchmark.py         # speed of each format on the test images
+python scripts/benchmark.py         # speed of each format, written to runs/benchmark.json
 python scripts/live.py              # webcam 0, press q to quit
-python scripts/live.py --source clip.mp4 --save out.mp4 --no-show
+python scripts/live.py --source results/live-on-test-images.mp4 --save out.mp4 --no-show
+python scripts/live.py --source datasets/hardhat/images/test --save out.mp4 --no-show
 ```
+
+Notes:
+
+- **Quick smoke test:** `python scripts/train.py --epochs 2` checks the whole pipeline in a few minutes. Expect a low mAP; the results above need the full 30 epochs.
+- **Test score:** after training, `train.py` runs `best.pt` on the held-out test split and prints `test mAP50=... mAP50-95=... P=... R=...`. The full report goes to `runs/hardhat-test/`.
+- **Pretrained weights:** the first training run downloads `yolo11n.pt` (about 5 MB) from Ultralytics into the repo folder. Git ignores it.
+- **Benchmark output:** `benchmark.py` writes to `runs/benchmark.json` by default, so it does not overwrite the reference run in `results/benchmark.json`. Use `--out` to choose another path.
+- **`live.py --source`** accepts a webcam index, a video file (yours or the included `results/live-on-test-images.mp4`), a folder of images, or a quoted glob such as `"photos/*.jpg"`. For images, `--fps` sets the output video rate (default 10).
 
 To train on your own classes, label your images in any tool that exports YOLO format. Then point `scripts/train.py --data` at your own `data.yaml`.
 
@@ -75,8 +94,8 @@ scripts/
   prepare_dataset.py   download the dataset, convert COCO labels to YOLO and keep a fixed subset
   train.py             fine-tune from pretrained weights, then score best.pt on the test split
   export.py            export to CoreML (with NMS) and ONNX
-  benchmark.py         time PyTorch MPS/CPU, CoreML and ONNX Runtime on the same images
-  live.py              draw boxes on a webcam stream or a video file
+  benchmark.py         time PyTorch MPS/CPU, CoreML and ONNX Runtime on the same images (runs/benchmark.json)
+  live.py              draw boxes on a webcam stream, a video file, or a folder/glob of images
 results/               training log (results.csv), plots, confusion matrices, PR curves, benchmark, demo clip
 docs/assets/           diagrams and brand assets used in this README
 ```
