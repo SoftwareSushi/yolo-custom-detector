@@ -9,7 +9,8 @@ from ultralytics import YOLO
 p = argparse.ArgumentParser()
 p.add_argument("--images", default="datasets/hardhat/images/test")
 p.add_argument("--warmup", type=int, default=10)
-p.add_argument("--out", default="results/benchmark.json")
+p.add_argument("--out", default="runs/benchmark.json",
+               help="where to write the JSON report (results/benchmark.json holds the recorded reference run)")
 a = p.parse_args()
 imgs = sorted(glob.glob(f"{a.images}/*.jpg"))
 targets = [
@@ -31,5 +32,6 @@ for label, w, dev in targets:
     r = {"format": label, "fps": round(len(imgs) / dt, 1), "ms_per_image": round(1000 * dt / len(imgs), 1)}
     print(r)
     res["results"].append(r)
-import os; os.makedirs("results", exist_ok=True)
+import os; os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
 json.dump(res, open(a.out, "w"), indent=2)
+print(f"wrote {a.out}")
